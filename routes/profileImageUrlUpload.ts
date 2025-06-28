@@ -4,6 +4,7 @@
  */
 
 import fs from 'node:fs'
+import { URL } from 'node:url'
 import { Readable } from 'node:stream'
 import { finished } from 'node:stream/promises'
 import { type Request, type Response, type NextFunction } from 'express'
@@ -17,7 +18,17 @@ export function profileImageUrlUpload () {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (req.body.imageUrl !== undefined) {
       const url = req.body.imageUrl
-      if (url.match(/(.)*solve\/challenges\/server-side(.)*/) !== null) req.app.locals.abused_ssrf_bug = true
+      const allowedHostnames = ['example.com', 'trusted.com']; // Define trusted hostnames
+      try {
+        const parsedUrl = new URL(url);
+        if (!allowedHostnames.includes(parsedUrl.hostname)) {
+          throw new Error('Blocked request to untrusted hostname');
+        }
+        if (url.match(/(.)*solve\/challenges\/server-side(.)*/) !== null) req.app.locals.abused_ssrf_bug = true
+      } catch (error) {
+        next(new Error('Invalid or untrusted URL provided'));
+        return;
+      }
       const loggedInUser = security.authenticatedUsers.get(req.cookies.token)
       if (loggedInUser) {
         try {
